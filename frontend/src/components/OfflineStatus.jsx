@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { offlineStorage } from '../utils/offlineStorage';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 export default function OfflineStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import RiskMap from '../components/RiskMap';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 export default function MapPage() {
   const [heatmap, setHeatmap] = useState([]);

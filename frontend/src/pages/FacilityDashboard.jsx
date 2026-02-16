@@ -8,8 +8,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import OfflineStatus from '../components/OfflineStatus';
 import { offlineStorage } from '../utils/offlineStorage';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 export default function FacilityDashboard() {
   const navigate = useNavigate();

@@ -7,7 +7,10 @@ from .routers import data, predictions, auth, reports, sms
 
 app = FastAPI(title="Predictive Health Intelligence Platform (PHIP)", version="0.1.0")
 
-origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# Get allowed origins from environment variable or default to local
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -27,4 +30,4 @@ app.include_router(data.router, prefix="/data", tags=["data"])
 app.include_router(predictions.router, prefix="/predictions", tags=["predictions"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
-
+app.include_router(sms.router, prefix="/sms", tags=["sms"])

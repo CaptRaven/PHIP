@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 function StatCard({ label, count, color, trend }) {
   return (
