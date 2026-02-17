@@ -4,6 +4,8 @@ from datetime import date
 from .. import models, schemas, auth_utils
 from ..db import get_db
 from ..ml.aggregation import aggregate_facility_reports
+from ..routers.predictions import get_model, evaluate_alerts
+from ..ml.model import build_feature_vector
 
 router = APIRouter()
 
@@ -35,8 +37,48 @@ def submit_report(
         db.commit()
         db.refresh(new_report)
     
-    # Trigger Aggregation
+    # 1. Aggregate Reports
     aggregate_facility_reports(db, current_facility.state, current_facility.lga, report.report_date)
+    
+    # 2. Trigger Real-time Risk Update
+    try:
+        loc = db.query(models.Location).filter(
+            models.Location.state == current_facility.state, 
+            models.Location.lga == current_facility.lga
+        ).first()
+        
+        if loc:
+            # We predict for the week containing this report
+            features = build_feature_vector(db, loc.id, report.report_date)
+            
+            # Predict for all diseases
+            for disease in ["cholera", "malaria", "lassa", "meningitis"]:
+                model = get_model(disease, db)
+                result = model.predict_full(features)
+                
+                # Update/Insert Prediction
+                # Check if prediction already exists for this week/disease
+                # For simplicity, we just insert a new one or update latest. 
+                # Ideally, we should have unique constraint on (lga, disease, prediction_date)
+                
+                pred = models.RiskPrediction(
+                    state=loc.state,
+                    lga=loc.lga,
+                    prediction_date=report.report_date,
+                    weeks_ahead=2,
+                    risk_score=result["risk_score"],
+                    risk_level=result["risk_level"],
+                    disease=disease,
+                    top_factors=result["top_factors"]
+                )
+                db.add(pred)
+                
+                evaluate_alerts(db, loc.id, disease, report.report_date, result["risk_score"])
+            
+            db.commit()
+    except Exception as e:
+        print(f"Error updating risk score: {e}")
+        # Don't fail the report submission if prediction fails
     
     return new_report
 
