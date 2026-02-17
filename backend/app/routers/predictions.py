@@ -78,29 +78,67 @@ def get_predictions(state: str, lga: str, weeks_ahead: int = 2, disease: str = "
 
 @router.get("/heatmap-data")
 def heatmap_data(disease: str = "cholera", db: Session = Depends(get_db)):
-    model = get_model(disease, db)
-    # Determine base week per location
+    # 1. First, try to fetch the LATEST pre-calculated predictions for all locations
+    # This avoids re-running the model for every single request and ensures we see what was just saved
+    
+    # Subquery to find the latest prediction date per LGA
+    # (In a real production app, we might just filter by date > today - 7 days)
+    
+    latest_preds = (
+        db.query(models.RiskPrediction)
+        .filter(models.RiskPrediction.disease == disease)
+        .order_by(models.RiskPrediction.prediction_date.desc())
+        .all()
+    )
+    
+    # De-duplicate by LGA (take the newest one)
+    # Map (state, lga) -> prediction
+    pred_map = {}
+    for p in latest_preds:
+        key = (p.state, p.lga)
+        if key not in pred_map:
+            pred_map[key] = p
+            
     items = []
     locations = db.query(models.Location).all()
+    
     for loc in locations:
-        latest_week = (
-            db.query(models.DiseaseHistory.week_start)
-            .filter(models.DiseaseHistory.location_id == loc.id)
-            .order_by(models.DiseaseHistory.week_start.desc())
-            .first()
-        )
-        base_week = latest_week[0] if latest_week else date.today()
-        features = build_feature_vector(db, loc.id, base_week)
-        score = model.predict_score(features)
-        items.append(
-            schemas.HeatmapItem(
-                state=loc.state,
-                lga=loc.lga,
-                latitude=loc.latitude,
-                longitude=loc.longitude,
-                risk_score=score,
-                risk_category=risk_category(score),
-                disease=disease,
+        key = (loc.state, loc.lga)
+        
+        # If we have a recent prediction, use it
+        if key in pred_map:
+            p = pred_map[key]
+            items.append(
+                schemas.HeatmapItem(
+                    state=loc.state,
+                    lga=loc.lga,
+                    latitude=loc.latitude,
+                    longitude=loc.longitude,
+                    risk_score=p.risk_score,
+                    risk_category=p.risk_level,
+                    disease=disease,
+                )
             )
-        )
+        else:
+            # Fallback: Compute on the fly if no prediction exists (e.g. fresh data or no report yet)
+            # This ensures we don't show empty map if jobs haven't run
+            try:
+                model = get_model(disease, db)
+                features = build_feature_vector(db, loc.id, date.today())
+                score = model.predict_score(features)
+                items.append(
+                    schemas.HeatmapItem(
+                        state=loc.state,
+                        lga=loc.lga,
+                        latitude=loc.latitude,
+                        longitude=loc.longitude,
+                        risk_score=score,
+                        risk_category=risk_category(score),
+                        disease=disease,
+                    )
+                )
+            except Exception:
+                # If model fails (e.g. no data), skip or show low risk
+                pass
+
     return schemas.HeatmapResponse(items=items)
