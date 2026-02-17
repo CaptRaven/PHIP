@@ -14,6 +14,14 @@ class LocationOut(LocationCreate):
     class Config:
         from_attributes = True
 
+class PasswordReset(BaseModel):
+    username: str
+    new_password: str
+    admin_secret: str
+
+class AdminAction(BaseModel):
+    admin_secret: str
+
 # --- Facility ---
 class FacilityCreate(BaseModel):
     name: str

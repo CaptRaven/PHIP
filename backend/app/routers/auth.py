@@ -50,3 +50,41 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     
     access_token = auth_utils.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer", "facility": user.facility}
+
+@router.post("/reset-password")
+def reset_password_admin(
+    payload: schemas.PasswordReset,
+    db: Session = Depends(get_db)
+):
+    # Simple admin protection via shared secret in request body
+    # In production, use proper admin roles or API keys
+    if payload.admin_secret != "phip_admin_secret_2026":
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+        
+    user = db.query(models.FacilityUser).filter(models.FacilityUser.username == payload.username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    hashed_password = auth_utils.get_password_hash(payload.new_password)
+    user.password_hash = hashed_password
+    db.commit()
+    
+    return {"status": "success", "message": f"Password reset for {payload.username}"}
+
+@router.post("/clear-facilities")
+def clear_facilities_admin(
+    payload: schemas.AdminAction,
+    db: Session = Depends(get_db)
+):
+    if payload.admin_secret != "phip_admin_secret_2026":
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+        
+    try:
+        db.query(models.FacilityUser).delete()
+        db.query(models.DailyReport).delete()
+        db.query(models.Facility).delete()
+        db.commit()
+        return {"status": "success", "message": "All facilities cleared"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
