@@ -29,6 +29,10 @@ export default function Overview() {
     axios.get(`${API_BASE}/predictions/heatmap-data?disease=cholera`)
       .then(res => {
         const items = res.data.items || [];
+        
+        // Debug log to verify data arrival
+        console.log("Heatmap data received:", items);
+
         const high = items.filter(i => i.risk_category === 'High').length;
         const medium = items.filter(i => i.risk_category === 'Medium').length;
         const low = items.filter(i => i.risk_category === 'Low').length;
@@ -41,7 +45,7 @@ export default function Overview() {
         setLoading(false);
       })
       .catch(err => {
-        console.error(err);
+        console.error("Error fetching overview data:", err);
         setLoading(false);
       });
   }, []);
