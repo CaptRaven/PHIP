@@ -9,7 +9,10 @@ app = FastAPI(title="Predictive Health Intelligence Platform (PHIP)", version="0
 
 # Get allowed origins from environment variable or default to local
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
-origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+if allowed_origins_str == "*":
+    origins = ["*"]
+else:
+    origins = [origin.strip().rstrip("/") for origin in allowed_origins_str.split(",")]
 
 app.add_middleware(
     CORSMiddleware,

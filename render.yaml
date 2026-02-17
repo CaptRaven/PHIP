@@ -13,7 +13,7 @@ services:
           name: phip-db
           property: connectionString
       - key: ALLOWED_ORIGINS
-        value: https://your-frontend-app.vercel.app
+        value: https://phip.vercel.app
 
 databases:
   - name: phip-db
