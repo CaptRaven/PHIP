@@ -42,6 +42,19 @@ def upload_environment(payload: schemas.EnvMetricIn, db: Session = Depends(get_d
     db.commit()
     return {"status": "ok"}
 
+@router.post("/seed")
+def seed_data(payload: schemas.AdminAction, db: Session = Depends(get_db)):
+    if payload.admin_secret != "phip_admin_secret_2026":
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+    
+    # Import here to avoid circular imports
+    from ...scripts.generate_data import generate
+    try:
+        generate(db)
+        return {"status": "success", "message": "Database seeded with synthetic data."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @router.post("/community")
 def upload_community(payload: schemas.CommunitySignalIn, db: Session = Depends(get_db)):
     loc = get_or_create_location(db, payload.state, payload.lga)
