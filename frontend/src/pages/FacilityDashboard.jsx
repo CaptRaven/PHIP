@@ -55,6 +55,9 @@ export default function FacilityDashboard() {
       setFeedback(res.data);
     } catch (err) {
       console.error("Error fetching feedback:", err);
+      if (err.response && err.response.status === 401) {
+        handleLogout();
+      }
     }
   };
 
@@ -114,6 +117,9 @@ export default function FacilityDashboard() {
          }
       } else {
         setSubmitStatus({ type: 'error', msg: 'Failed to submit report.' });
+        if (err.response && err.response.status === 401) {
+          handleLogout();
+        }
       }
     } finally {
       setLoading(false);

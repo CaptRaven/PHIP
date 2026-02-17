@@ -14,17 +14,43 @@ def register(facility: schemas.FacilityCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Username already registered")
     
     # Create Facility (Location is now embedded or handled by string columns)
+    # Ensure latitude/longitude are float or None, defaulting to None if 0 or empty
+    lat = facility.latitude if facility.latitude and facility.latitude != 0 else None
+    lon = facility.longitude if facility.longitude and facility.longitude != 0 else None
+    
     new_facility = models.Facility(
         name=facility.name,
         type=facility.type,
         state=facility.state,
         lga=facility.lga,
-        latitude=facility.latitude,
-        longitude=facility.longitude
+        latitude=lat,
+        longitude=lon
     )
     db.add(new_facility)
     db.commit()
     db.refresh(new_facility)
+    
+    # Check if this Location exists in locations table (for heatmap)
+    # If not, create it using facility coordinates
+    existing_loc = db.query(models.Location).filter(
+        models.Location.state == facility.state, 
+        models.Location.lga == facility.lga
+    ).first()
+    
+    if not existing_loc:
+        new_loc = models.Location(
+            state=facility.state,
+            lga=facility.lga,
+            latitude=lat or 9.0820, # Default to Nigeria center if missing
+            longitude=lon or 8.6753
+        )
+        db.add(new_loc)
+        db.commit()
+    elif lat and lon and (not existing_loc.latitude or existing_loc.latitude == 0):
+        # Update existing location with valid coords from facility
+        existing_loc.latitude = lat
+        existing_loc.longitude = lon
+        db.commit()
     
     # Create User
     hashed_password = auth_utils.get_password_hash(facility.password)
