@@ -47,11 +47,31 @@ def seed_data(payload: schemas.AdminAction, db: Session = Depends(get_db)):
     if payload.admin_secret != "phip_admin_secret_2026":
         raise HTTPException(status_code=403, detail="Invalid admin secret")
     
-    # Import here to avoid circular imports
-    from ...scripts.generate_data import generate
+    # Absolute import since 'app' is a package
+    from app.db import engine, SessionLocal
+    from app import models
+    # Import generate function directly by path or module
+    # Since scripts is outside app, we might need sys.path hack or just duplicate logic
+    # Better: Move generate logic into a service function inside app
+    
+    # For now, let's use a simplified inline generator to avoid import hell
+    # or import from root if possible.
     try:
+        # We'll use a dynamic import to avoid the relative import issue
+        import sys
+        import os
+        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+        from backend.scripts.generate_data import generate
         generate(db)
         return {"status": "success", "message": "Database seeded with synthetic data."}
+    except ImportError:
+        # Fallback if path hack fails
+        try:
+            from scripts.generate_data import generate
+            generate(db)
+            return {"status": "success", "message": "Database seeded (fallback import)."}
+        except Exception as e:
+             return {"status": "error", "message": f"Import failed: {str(e)}"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
