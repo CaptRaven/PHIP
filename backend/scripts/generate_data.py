@@ -143,6 +143,41 @@ def generate(db: Session):
             ))
         db.commit()
 
+    # Run initial prediction for the latest week so the heatmap is populated immediately
+    from app.routers.predictions import get_model, evaluate_alerts
+    from app.ml.model import build_feature_vector, risk_category
+    
+    print("Generating initial predictions...")
+    for loc in db.query(models.Location).all():
+        latest_week_rec = (
+            db.query(models.DiseaseHistory.week_start)
+            .filter(models.DiseaseHistory.location_id == loc.id)
+            .order_by(models.DiseaseHistory.week_start.desc())
+            .first()
+        )
+        base_week = latest_week_rec[0] if latest_week_rec else date.today()
+        features = build_feature_vector(db, loc.id, base_week)
+        
+        for disease in ["cholera", "malaria", "lassa", "meningitis"]:
+            model = get_model(disease, db)
+            result = model.predict_full(features)
+            
+            pred = models.RiskPrediction(
+                state=loc.state,
+                lga=loc.lga,
+                prediction_date=base_week,
+                weeks_ahead=2,
+                risk_score=result["risk_score"],
+                risk_level=result["risk_level"],
+                disease=disease,
+                top_factors=result["top_factors"]
+            )
+            db.add(pred)
+            evaluate_alerts(db, loc.id, disease, base_week, result["risk_score"])
+            
+    db.commit()
+    print("Initial predictions generated.")
+
 if __name__ == "__main__":
     db = SessionLocal()
     try:
