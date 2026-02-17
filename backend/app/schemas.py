@@ -23,7 +23,7 @@ class FacilityCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     username: str
-    password: str
+    password: str = Field(..., max_length=72)
 
 class FacilityOut(BaseModel):
     id: str # UUID
